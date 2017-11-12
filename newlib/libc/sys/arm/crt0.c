@@ -153,6 +153,7 @@ _start (
     // get loaded image protocol
     status = mBS->HandleProtocol (image_handle, &mEfiLoadedImageProtocolGuid, (void**)&loaded_image);
     if (status) {
+        efi_puts("Can't find LoadedImageProtocol\n");
         return EFI_LOAD_ERROR;
     }
 
@@ -163,6 +164,7 @@ _start (
         efi_relocation_t * relocs = (void*)(reloctbl_offset + sizeof(efi_relocation_hdr_t));
         rc = do_relocate(relocs, reloc_hdr, relocoffset);
         if (rc) {
+            efi_puts("relocation error\n");
             return EFI_LOAD_ERROR;
         }
     }
