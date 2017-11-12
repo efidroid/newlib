@@ -47,21 +47,6 @@ static void efi_puts(const char *s) {
     }
 }
 
-static void ThumbMovtImmediatePatch (uint16_t *Instruction, uint16_t Address) {
-    uint16_t  Patch;
-
-    // First 16-bit chunk of instruciton
-    Patch  = ((Address >> 12) & 0x000f);             // imm4 
-    Patch |= (((Address & BIT11) != 0) ? BIT10 : 0); // i
-    *Instruction = (*Instruction & ~0x040f) | Patch;
-
-    // Second 16-bit chunk of instruction
-    Patch  =  Address & 0x000000ff;          // imm8
-    Patch |=  ((Address << 4) & 0x00007000); // imm3
-    Instruction++;
-    *Instruction = (*Instruction & ~0x70ff) | Patch;
-}
-
 static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr, intptr_t relocoffset) {
     uintptr_t i;
     void *got = (void*)(reloc_hdr->got_address + relocoffset);
@@ -69,6 +54,10 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
     for(i=0; i<reloc_hdr->num_relocs; i++) {
         efi_relocation_t *rel = &relocs[i];
         uint32_t *ploc = (void*)(rel->address + relocoffset);
+        uint16_t *ploc16 = (uint16_t*)ploc;
+        int32_t offset;
+        uint32_t tmp;
+        uint32_t upper, lower;
 
         switch (rel->type) {
             case R_ARM_TARGET1:
@@ -78,10 +67,53 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
 
             case R_ARM_THM_MOVW_ABS_NC:
             case R_ARM_THM_MOVT_ABS:
-                if (rel->type==R_ARM_THM_MOVW_ABS_NC)
-                    ThumbMovtImmediatePatch ((uint16_t *)ploc, relocoffset + rel->sym_value);
-                else
-                    ThumbMovtImmediatePatch ((uint16_t *)ploc, (relocoffset +rel->sym_value)>>16);
+                upper = *ploc16;
+                lower = *(ploc16 + 1);
+
+                /*
+                * MOVT/MOVW instructions encoding in Thumb-2:
+                *
+                * i     = upper[10]
+                * imm4  = upper[3:0]
+                * imm3  = lower[14:12]
+                * imm8  = lower[7:0]
+                *
+                * imm16 = imm4:i:imm3:imm8
+                */
+                offset = ((upper & 0x000f) << 12) |
+                         ((upper & 0x0400) << 1) |
+                         ((lower & 0x7000) >> 4) | (lower & 0x00ff);
+                offset = (offset ^ 0x8000) - 0x8000;
+                offset += relocoffset;
+
+                if (rel->type == R_ARM_THM_MOVT_ABS)
+                    offset >>= 16;
+
+                upper = (uint16_t)((upper & 0xfbf0) |
+                                  ((offset & 0xf000) >> 12) |
+                                  ((offset & 0x0800) >> 1));
+                lower = (uint16_t)((lower & 0x8f00) |
+                                  ((offset & 0x0700) << 4) |
+                                  (offset & 0x00ff));
+                *ploc16 = upper;
+                *(ploc16 + 2) = lower;
+                break;
+
+            case R_ARM_MOVW_ABS_NC:
+            case R_ARM_MOVT_ABS:
+                offset = tmp = *ploc;
+                offset = ((offset & 0xf0000) >> 4) | (offset & 0xfff);
+                offset = (offset ^ 0x8000) - 0x8000;
+
+                offset += relocoffset;
+                if (rel->type == R_ARM_MOVT_ABS)
+                    offset >>= 16;
+
+                tmp &= 0xfff0f000;
+                tmp |= ((offset & 0xf000) << 4) |
+                        (offset & 0x0fff);
+
+                *ploc = tmp;
                 break;
 
             case R_ARM_GOT32: {
