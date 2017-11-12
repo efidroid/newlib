@@ -80,11 +80,7 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
                 *
                 * imm16 = imm4:i:imm3:imm8
                 */
-                offset = ((upper & 0x000f) << 12) |
-                         ((upper & 0x0400) << 1) |
-                         ((lower & 0x7000) >> 4) | (lower & 0x00ff);
-                offset = (offset ^ 0x8000) - 0x8000;
-                offset += relocoffset;
+                offset = relocoffset + rel->sym_value;
 
                 if (rel->type == R_ARM_THM_MOVT_ABS)
                     offset >>= 16;
@@ -101,11 +97,9 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
 
             case R_ARM_MOVW_ABS_NC:
             case R_ARM_MOVT_ABS:
-                offset = tmp = *ploc;
-                offset = ((offset & 0xf0000) >> 4) | (offset & 0xfff);
-                offset = (offset ^ 0x8000) - 0x8000;
+                tmp = *ploc;
 
-                offset += relocoffset;
+                offset = relocoffset + rel->sym_value;
                 if (rel->type == R_ARM_MOVT_ABS)
                     offset >>= 16;
 
