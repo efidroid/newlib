@@ -474,6 +474,9 @@ uninstall-am:
 
 @MAY_SUPPLY_SYSCALLS_TRUE@all-local: crt0.o
 
+@MAY_SUPPLY_SYSCALLS_TRUE@crt0.o: crt0.c
+@MAY_SUPPLY_SYSCALLS_TRUE@	$(CC) $(CFLAGS_FOR_TARGET) $($(MULTI_FLAGS_FOR_TARGET)) $(CFLAGS) $(INCLUDES) -fPIC -o $@ -c $<
+
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

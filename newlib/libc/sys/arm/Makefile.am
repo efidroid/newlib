@@ -23,6 +23,9 @@ lib_a_CFLAGS = $(AM_CFLAGS)
 
 if MAY_SUPPLY_SYSCALLS
 all-local: crt0.o
+
+crt0.o: crt0.c
+	$(CC) $(CFLAGS_FOR_TARGET) $($(MULTI_FLAGS_FOR_TARGET)) $(CFLAGS) $(INCLUDES) -fPIC -o $@ -c $<
 endif
 
 ACLOCAL_AMFLAGS = -I ../../.. -I ../../../..
