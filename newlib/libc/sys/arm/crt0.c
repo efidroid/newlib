@@ -174,10 +174,10 @@ _start (
     gImageHandle = image_handle;
     gST = system_table;
 
-    atexit(__libc_fini_array);
-    __libc_init_array();
-
     if (setjmp(_exit_jmp_buf) == 0) {
+        atexit(__libc_fini_array);
+        __libc_init_array();
+
         exit(main(0, NULL));
         return EFI_ABORTED;
     }
