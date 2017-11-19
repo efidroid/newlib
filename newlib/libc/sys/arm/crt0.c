@@ -11,6 +11,7 @@
 typedef struct {
     Elf32_Word num_relocs;
     Elf32_Addr got_address;
+    Elf32_Word got_size;
 } efi_relocation_hdr_t;
 
 typedef struct {
@@ -49,7 +50,7 @@ static void efi_puts(const char *s) {
 
 static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr, intptr_t relocoffset) {
     uintptr_t i;
-    void *got = (void*)(reloc_hdr->got_address + relocoffset);
+    uint32_t *got = (void*)(reloc_hdr->got_address + relocoffset);
 
     for(i=0; i<reloc_hdr->num_relocs; i++) {
         efi_relocation_t *rel = &relocs[i];
@@ -110,16 +111,14 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
                 *ploc = tmp;
                 break;
 
-            case R_ARM_GOT32: {
-                uint32_t *ploc_got = got + *ploc;
-                *ploc_got += relocoffset;
-                break;
-            }
-
             default:
                 efi_puts("invalid relocation type\n");
                 return -1;
         }
+    }
+
+    for(i=0; i<reloc_hdr->got_size / sizeof(uint32_t); i++) {
+        got[i] += relocoffset;
     }
 
     return 0;
