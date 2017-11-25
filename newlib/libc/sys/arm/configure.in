@@ -10,5 +10,12 @@ AC_CONFIG_AUX_DIR(../../../..)
 
 NEWLIB_CONFIGURE(../../..)
 
+if test "${newlib_multithread}" = "yes"; then
+AC_CONFIG_SUBDIRS(uefithreads)
+fi
+
+EXTRA_SUBDIRS="uefithreads"
+AC_SUBST(EXTRA_SUBDIRS)
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

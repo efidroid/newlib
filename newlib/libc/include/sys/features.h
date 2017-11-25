@@ -377,6 +377,12 @@ extern "C" {
 #define _POSIX_THREAD_PRIORITY_SCHEDULING	1
 #endif
 
+#ifdef __uefi__
+#define _POSIX_THREADS 1
+#define _UNIX98_THREAD_MUTEX_ATTRIBUTES 1
+#define _POSIX_TIMERS 1
+#endif
+
 
 #ifdef __svr4__
 # define _POSIX_JOB_CONTROL     1

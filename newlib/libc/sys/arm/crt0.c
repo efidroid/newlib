@@ -32,6 +32,7 @@ char **environ = (char **)0;
 
 void __libc_init_array(void);
 void __libc_fini_array(void);
+void __libc_init_syscalls(void);
 int main(int argc, char **argv);
 
 static void efi_puts(const char *s) {
@@ -174,6 +175,8 @@ _start (
 
     gImageHandle = image_handle;
     gST = system_table;
+
+    __libc_init_syscalls();
 
     if (setjmp(_exit_jmp_buf) == 0) {
         atexit(__libc_fini_array);

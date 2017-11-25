@@ -4,6 +4,13 @@ AUTOMAKE_OPTIONS = cygnus
 
 INCLUDES = $(NEWLIB_CFLAGS) $(CROSS_CFLAGS) $(TARGET_CFLAGS) -I$(newlib_basedir)/libc/machine/arm
 
+SUBDIRS = \
+	$(EXTRA_SUBDIRS) \
+	.
+
+SUBLIBS = \
+	$(EXTRA_SUBLIBS)
+
 AM_CCASFLAGS = $(INCLUDES)
 
 noinst_LIBRARIES = lib.a
