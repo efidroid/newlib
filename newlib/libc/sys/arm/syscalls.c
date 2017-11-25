@@ -84,16 +84,38 @@ _write (int    file,
   int i;
   uint8_t c16[4] = {0};
 
-  if (file == 1) {
+  if (file == 1 || file == 2) {
+    EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *con;
+    if (file==2)
+        con = gST->StdErr?:gST->ConOut;
+    else if (file==1)
+        con = gST->ConOut;
+
+    if (con==NULL)
+        return -1;
+
+    size_t ustr_len = 0;
+    for (i = 0; i < len; i++) {
+      if (*ptr=='\n')
+          ustr_len++;
+
+        ustr_len++;
+    }
+    CHAR16 *ustr = malloc(ustr_len + 1);
+    if (!ustr) return -1;
+
+    size_t pos = 0;
     for (i = 0; i < len; i++) {
       if (*ptr=='\n') {
-          c16[0] = '\r';
-          gST->ConOut->OutputString(gST->ConOut, (CHAR16*)c16);
+          ustr[pos++] = '\r';
       }
 
-      c16[0] = *ptr++;
-      gST->ConOut->OutputString(gST->ConOut, (CHAR16*)c16);
+      ustr[pos++] = (CHAR16)(*ptr++);
     }
+    ustr[pos++] = 0;
+
+    con->OutputString(con, ustr);
+    free(ustr);
   }
   else {
     errno = EBADF;
