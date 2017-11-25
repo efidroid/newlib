@@ -28,6 +28,7 @@ EFI_HANDLE         gImageHandle;
 EFI_SYSTEM_TABLE   *gST;
 jmp_buf _exit_jmp_buf;
 int _exit_return_value;
+char **environ = (char **)0;
 
 void __libc_init_array(void);
 void __libc_fini_array(void);
