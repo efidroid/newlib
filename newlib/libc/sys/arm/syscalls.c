@@ -134,7 +134,6 @@ _write (int    file,
 	int    len)
 {
   int i;
-  uint8_t c16[4] = {0};
 
   if (file == 1 || file == 2) {
     EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *con;
@@ -148,21 +147,23 @@ _write (int    file,
 
     size_t ustr_len = 0;
     for (i = 0; i < len; i++) {
-      if (*ptr=='\n')
+      if (ptr[i]=='\n')
           ustr_len++;
 
-        ustr_len++;
+      ustr_len++;
     }
-    CHAR16 *ustr = malloc(ustr_len + 1);
+    ustr_len++;
+
+    CHAR16 *ustr = malloc(sizeof(CHAR16) * (ustr_len));
     if (!ustr) return -1;
 
     size_t pos = 0;
     for (i = 0; i < len; i++) {
-      if (*ptr=='\n') {
+      if (ptr[i]=='\n') {
           ustr[pos++] = '\r';
       }
 
-      ustr[pos++] = (CHAR16)(*ptr++);
+      ustr[pos++] = (CHAR16)(ptr[i]);
     }
     ustr[pos++] = 0;
 
