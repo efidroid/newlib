@@ -369,14 +369,7 @@ int clock_gettime(clockid_t clock_id, struct timespec *tp) {
   uint64_t ns;
   assert(clock_id == CLOCK_REALTIME);
 
-  if (mTimestamp) {
-    uint64_t ticks = mTimestamp->GetTimestamp();
-    uint64_t freq = mTimestampProperties.Frequency;
-
-    ns = (ticks / freq) * 1000000000u;
-    ns += ((ticks % freq) *  1000000000u) / freq;
-  }
-  else if (__libc_mThreads) {
+  if (__libc_mThreads) {
     ns = __libc_mThreads->CurrentTimeNs();
   }
   else {
