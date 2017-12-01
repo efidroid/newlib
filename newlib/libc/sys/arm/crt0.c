@@ -2,6 +2,7 @@
 #include <PiDxe.h>
 #include <Protocol/SimpleTextOut.h>
 #include <Protocol/LoadedImage.h>
+#include <Protocol/Cpu.h>
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -12,6 +13,9 @@ typedef struct {
     Elf32_Word num_relocs;
     Elf32_Addr got_address;
     Elf32_Word got_size;
+
+    Elf32_Addr text_base;
+    Elf32_Word text_size;
 } efi_relocation_hdr_t;
 
 typedef struct {
@@ -21,8 +25,10 @@ typedef struct {
 } efi_relocation_t;
 
 static EFI_GUID mEfiLoadedImageProtocolGuid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
+static EFI_GUID mEfiCpuArchProtocolGuid = EFI_CPU_ARCH_PROTOCOL_GUID;
 static EFI_SYSTEM_TABLE *mST = NULL;
 static EFI_BOOT_SERVICES *mBS = NULL;
+static EFI_CPU_ARCH_PROTOCOL *mCpu = NULL;
 
 EFI_HANDLE         gImageHandle;
 EFI_SYSTEM_TABLE   *gST;
@@ -163,9 +169,33 @@ _start (
         intptr_t reloctbl_offset = (intptr_t)loaded_image->ImageBase + 0x1000;
         efi_relocation_hdr_t *reloc_hdr = (void*)(reloctbl_offset);
         efi_relocation_t * relocs = (void*)(reloctbl_offset + sizeof(efi_relocation_hdr_t));
+
+        status = mST->BootServices->LocateProtocol (&mEfiCpuArchProtocolGuid, NULL, (void **)&mCpu);
+        if (status) {
+            efi_puts("Can't find CpuArchProtocol\n");
+            return EFI_LOAD_ERROR;
+        }
+
+        // unprotect text section
+        status = mCpu->SetMemoryAttributes(mCpu, reloc_hdr->text_base + relocoffset, reloc_hdr->text_size, 0);
+        if (status) {
+            efi_puts("Can't make text section writable\n");
+            return EFI_LOAD_ERROR;
+        }
+
         rc = do_relocate(relocs, reloc_hdr, relocoffset);
         if (rc) {
             efi_puts("relocation error\n");
+            return EFI_LOAD_ERROR;
+        }
+
+        // (re-)protect text section
+        // Actually we don't have a way to check if we ever had RO-protection.
+        // Either way, we probably want to enable that protection no matter what
+        // UEFI decided to do.
+        status = mCpu->SetMemoryAttributes(mCpu, reloc_hdr->text_base + relocoffset, reloc_hdr->text_size, EFI_MEMORY_RO);
+        if (status) {
+            efi_puts("Can't make text section RO\n");
             return EFI_LOAD_ERROR;
         }
     }
