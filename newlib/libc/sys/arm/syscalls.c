@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <assert.h>
+#include <pthread.h>
 
 extern jmp_buf _exit_jmp_buf;
 extern int _exit_return_value;
@@ -419,6 +420,12 @@ int sched_yield( void ) {
     __libc_mThreads->ThreadYield();
   }
 
+  return 0;
+}
+
+// newlib uses this for locking so define this as a weak symbol
+// in case we're not linking against libpthread
+__weak_symbol int pthread_setcancelstate(int state, int * oldstate) {
   return 0;
 }
 
