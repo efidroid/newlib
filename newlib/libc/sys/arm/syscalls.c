@@ -339,6 +339,11 @@ int truncate(const char *path, off_t __length) {
   return -1;
 }
 
+int fchown(int fd, uid_t owner, gid_t group) {
+  errno = ENOSYS;
+  return -1;
+}
+
 ssize_t readlink(const char *__restrict __path,
                           char *__restrict __buf, size_t __buflen)
 {
