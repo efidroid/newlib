@@ -27,18 +27,27 @@
 #include <assert.h>
 #include <pthread.h>
 
+void __libc_efi_puts(const char *s);
+
 extern jmp_buf _exit_jmp_buf;
 extern int _exit_return_value;
 static EFI_GUID mUefiThreadProtocolGuid = UEFI_THREAD_PROTOCOL_GUID;
 static EFI_GUID mEfiTimestampProtocolGuid = EFI_TIMESTAMP_PROTOCOL_GUID;
 static EFI_TIMESTAMP_PROTOCOL *mTimestamp = NULL;
 static EFI_TIMESTAMP_PROPERTIES mTimestampProperties;
-UEFI_THREAD_PROTOCOL *__libc_mThreads;
+UEFI_THREAD_PROTOCOL *__libc_mThreads = NULL;
+THREAD __libc_mMainThread;
+
+__weak_symbol void __libc_init_pthreads(void) {
+}
 
 void __libc_init_syscalls(void) {
   EFI_STATUS status;
 
   gST->BootServices->LocateProtocol (&mUefiThreadProtocolGuid, NULL, (void **)&__libc_mThreads);
+  if (__libc_mThreads) {
+    __libc_mMainThread = __libc_mThreads->ThreadSelf();
+  }
 
   status = gST->BootServices->LocateProtocol (&mEfiTimestampProtocolGuid, NULL, (void **)&mTimestamp);
   if (!EFI_ERROR(status)) {
@@ -47,6 +56,8 @@ void __libc_init_syscalls(void) {
       mTimestamp = NULL;
     }
   }
+
+  __libc_init_pthreads();
 }
 
 /* Forward prototypes.  */
@@ -212,6 +223,12 @@ void
 _exit (int status)
 {
   _exit_return_value = status;
+
+  if (__libc_mThreads && __libc_mThreads->ThreadSelf() != __libc_mMainThread) {
+    __libc_efi_puts("called exit() from a thread. waiting forever\n");
+    for(;;);
+  }
+
   longjmp(_exit_jmp_buf, 1);
 }
 
