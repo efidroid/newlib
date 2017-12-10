@@ -56,6 +56,10 @@ static void efi_puts(const char *s) {
     }
 }
 
+void __libc_efi_puts(const char *s) {
+    return efi_puts(s);
+}
+
 static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr, intptr_t relocoffset) {
     uintptr_t i;
     uint32_t *got = (void*)(reloc_hdr->got_address + relocoffset);
