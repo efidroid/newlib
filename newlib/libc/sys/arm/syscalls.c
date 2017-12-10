@@ -424,6 +424,10 @@ int usleep(useconds_t usec) {
   return -1;
 }
 
+unsigned int sleep(unsigned int seconds) {
+    return usleep(seconds * 1000000);
+}
+
 int nanosleep (const struct timespec  *rqtp, struct timespec *rmtp) {
   if (mTimestamp) {
     // Round up to 1us Tick Number
