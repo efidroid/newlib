@@ -374,8 +374,12 @@ int rmdir(const char *__path) {
 char *
 getcwd (char *pt, size_t size)
 {
-  assert(0);
-  return NULL;
+  if (size<2) {
+    return NULL;
+  }
+
+  snprintf(pt, size, "/");
+  return pt;
 }
 
 int chdir(const char *__path )
