@@ -344,6 +344,11 @@ int fchown(int fd, uid_t owner, gid_t group) {
   return -1;
 }
 
+int utimes(const char *path, const struct timeval times[2]) {
+  errno = ENOSYS;
+  return -1;
+}
+
 ssize_t readlink(const char *__restrict __path,
                           char *__restrict __buf, size_t __buflen)
 {
