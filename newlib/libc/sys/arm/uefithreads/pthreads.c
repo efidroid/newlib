@@ -408,7 +408,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   ithread->canceled = 0;
   pthread_mutex_init(&ithread->mutex, NULL);
 
-  status = __libc_mThreads->ThreadCreate(&t, "pthread", pthread_start_routine, ithread, DEFAULT_PRIORITY, 0x10000);
+  status = __libc_mThreads->ThreadCreate(&t, "pthread", pthread_start_routine, ithread, DEFAULT_PRIORITY, 8*1024*1024);
   if (EFI_ERROR(status)) {
     return -1;
   }
