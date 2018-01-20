@@ -28,6 +28,8 @@
 
 #if defined(__XMK__)
 typedef unsigned int pthread_t;          /* identify a thread */
+#elif defined(__uefi__)
+typedef uintptr_t pthread_t;          /* identify a thread */
 #else
 typedef __uint32_t pthread_t;            /* identify a thread */
 #endif
@@ -151,7 +153,11 @@ typedef struct {
 } pthread_mutexattr_t;
 
 #else /* !defined(__XMK__) */
+#if defined(__uefi__)
+typedef uintptr_t pthread_mutex_t;
+#else
 typedef __uint32_t pthread_mutex_t;      /* identify a mutex */
+#endif
 
 typedef struct {
   int   is_initialized;
@@ -173,7 +179,11 @@ typedef struct {
 
 /* Condition Variables */
 
+#if defined(__uefi__)
+typedef uintptr_t pthread_cond_t;
+#else
 typedef __uint32_t pthread_cond_t;       /* identify a condition variable */
+#endif
 
 #define _PTHREAD_COND_INITIALIZER ((pthread_cond_t) 0xFFFFFFFF)
 
@@ -187,7 +197,11 @@ typedef struct {
 
 /* Keys */
 
+#if defined(__uefi__)
+typedef uintptr_t pthread_key_t;
+#else
 typedef __uint32_t pthread_key_t;        /* thread-specific data keys */
+#endif
 
 typedef struct {
   int   is_initialized;  /* is this structure initialized? */
