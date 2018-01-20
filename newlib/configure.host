@@ -405,6 +405,9 @@ case "${host}" in
 	sys_dir=tirtos
 	have_crt0="no"
 	;;
+  *-uefi-*)
+	sys_dir=uefi
+	;;
   a29k-*-*)
 	sys_dir=a29khif
 	signal_dir=
@@ -619,6 +622,9 @@ case "${host}" in
 # TIRTOS supplies its own version of malloc
   *-*-tirtos*)
 	newlib_cflags="${newlib_cflags} -D__DYNAMIC_REENT__ -DMALLOC_PROVIDED"
+	;;
+  *-uefi-*)
+	syscall_dir=syscalls
 	;;
 # UDI doesn't have exec, so system() should fail the right way
   a29k-amd-udi)
