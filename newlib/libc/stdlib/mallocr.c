@@ -33,10 +33,10 @@ int _dummy_mallocr = 1;
     On X64  systems, this structure is 32 bytes long, excluding Data.
 **/
 typedef struct {
-    LIST_ENTRY      List;
-    UINT32          Signature;
-    UINT64          Size;
-    CHAR8           Data[1];
+  LIST_ENTRY      List;
+  UINT32          Signature;
+  UINT64          Size;
+  CHAR8           Data[1];
 } CPOOL_HEAD;
 
 // List of memory allocated by malloc/calloc/etc.
