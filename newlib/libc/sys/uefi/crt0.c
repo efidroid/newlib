@@ -243,9 +243,6 @@ _start (
         }
     }
 
-    if (image_handle == (void*)0x00000fff)
-        return 0;
-
     gImageHandle = image_handle;
     gST = system_table;
 
