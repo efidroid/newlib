@@ -9,19 +9,36 @@
 #include <elf.h>
 #include <setjmp.h>
 
-typedef struct {
-    Elf32_Word num_relocs;
-    Elf32_Addr got_address;
-    Elf32_Word got_size;
+#if defined(__arm__)
+typedef Elf32_Addr Elf_Addr;
+typedef Elf32_Word Elf_Word;
+#define EFI_IMAGE_NT_HEADERS EFI_IMAGE_NT_HEADERS32
+#define EFI_IMAGE_NT_OPTIONAL_HDR_MAGIC EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC
+#define Pe32Arch Pe32
 
-    Elf32_Addr text_base;
-    Elf32_Word text_size;
+#elif defined(__x86_64__)
+typedef Elf64_Addr Elf_Addr;
+typedef Elf64_Word Elf_Word;
+#define EFI_IMAGE_NT_HEADERS EFI_IMAGE_NT_HEADERS64
+#define EFI_IMAGE_NT_OPTIONAL_HDR_MAGIC EFI_IMAGE_NT_OPTIONAL_HDR64_MAGIC
+#define Pe32Arch Pe32Plus
+#else
+    #error unsupported architecture
+#endif
+
+typedef struct {
+    Elf_Word num_relocs;
+    Elf_Addr got_address;
+    Elf_Word got_size;
+
+    Elf_Addr text_base;
+    Elf_Word text_size;
 } efi_relocation_hdr_t;
 
 typedef struct {
-    Elf32_Addr address;
-    Elf32_Word type;
-    Elf32_Word sym_value;
+    Elf_Addr address;
+    Elf_Word type;
+    Elf_Word sym_value;
 } efi_relocation_t;
 
 static EFI_GUID mEfiLoadedImageProtocolGuid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
@@ -66,22 +83,25 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
 
     for(i=0; i<reloc_hdr->num_relocs; i++) {
         efi_relocation_t *rel = &relocs[i];
-        uint32_t *ploc = (void*)(rel->address + relocoffset);
-        uint16_t *ploc16 = (uint16_t*)ploc;
+        void *loc = (void*)(rel->address + relocoffset);
+        uint64_t *plocu64 = (uint64_t*)loc;
+        uint32_t *plocu32 = (uint32_t*)loc;
+        uint16_t *plocu16 = (uint16_t*)loc;
         int32_t offset;
         uint32_t tmp;
         uint32_t upper, lower;
 
         switch (rel->type) {
+#if defined(__arm__)
             case R_ARM_TARGET1:
             case R_ARM_ABS32:
-                *ploc += relocoffset;
+                *plocu32 += relocoffset;
                 break;
 
             case R_ARM_THM_MOVW_ABS_NC:
             case R_ARM_THM_MOVT_ABS:
-                upper = *ploc16;
-                lower = *(ploc16 + 1);
+                upper = *plocu16;
+                lower = *(plocu16 + 1);
 
                 /*
                 * MOVT/MOVW instructions encoding in Thumb-2:
@@ -104,13 +124,13 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
                 lower = (uint16_t)((lower & 0x8f00) |
                                   ((offset & 0x0700) << 4) |
                                   (offset & 0x00ff));
-                *ploc16 = upper;
-                *(ploc16 + 2) = lower;
+                *plocu16 = upper;
+                *(plocu16 + 2) = lower;
                 break;
 
             case R_ARM_MOVW_ABS_NC:
             case R_ARM_MOVT_ABS:
-                tmp = *ploc;
+                tmp = *plocu32;
 
                 offset = relocoffset + rel->sym_value;
                 if (rel->type == R_ARM_MOVT_ABS)
@@ -120,8 +140,16 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
                 tmp |= ((offset & 0xf000) << 4) |
                         (offset & 0x0fff);
 
-                *ploc = tmp;
+                *plocu32 = tmp;
                 break;
+
+#elif defined(__x86_64__)
+            case R_X86_64_64:
+                *plocu64 += relocoffset;
+                break;
+#else
+            #error unsupported architecture
+#endif
 
             default:
                 efi_puts("invalid relocation type\n");
@@ -129,7 +157,7 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
         }
     }
 
-    for(i=0; i<reloc_hdr->got_size / sizeof(uint32_t); i++) {
+    for(i=0; i<reloc_hdr->got_size / sizeof(Elf_Addr); i++) {
         got[i] += relocoffset;
     }
 
@@ -147,19 +175,15 @@ _start (
     EFI_STATUS status;
     intptr_t relocoffset;
     EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+    EFI_IMAGE_OPTIONAL_HEADER_PTR_UNION  hdr;
+    EFI_IMAGE_DOS_HEADER *dos_hdr;
+    uintptr_t table_offset;
+    EFI_IMAGE_SECTION_HEADER *sectionHeaders;
+    efi_relocation_hdr_t *reloc_hdr;
+    efi_relocation_t *relocs;
 
     mST = system_table;
     mBS = mST->BootServices;
-
-    // get loading offset
-    __asm__(".Lphys_offset:\n\t"
-            "ldr     r4, =.Lphys_offset\n\t"
-            "adr     %0, .Lphys_offset\n\t"
-            "sub     %0, %0, r4\n\t"
-             :"=r"(relocoffset)
-             :
-             :"r4"
-    );
 
     // get loaded image protocol
     status = mBS->HandleProtocol (image_handle, &mEfiLoadedImageProtocolGuid, (void**)&loaded_image);
@@ -168,12 +192,27 @@ _start (
         return EFI_LOAD_ERROR;
     }
 
+    // get pe32 header
+    dos_hdr = (EFI_IMAGE_DOS_HEADER *)loaded_image->ImageBase;
+    if (dos_hdr->e_magic == EFI_IMAGE_DOS_SIGNATURE) {
+      hdr.Pe32 = (EFI_IMAGE_NT_HEADERS32 *)(loaded_image->ImageBase + (uintptr_t) ((dos_hdr->e_lfanew) & 0x0ffff));
+    } else {
+      hdr.Pe32 = (EFI_IMAGE_NT_HEADERS32 *)loaded_image->ImageBase;
+    }
+
+    // get section headers
+    table_offset = sizeof(EFI_IMAGE_DOS_HEADER) + 0x40 + sizeof (EFI_IMAGE_NT_HEADERS);
+    sectionHeaders = (EFI_IMAGE_SECTION_HEADER*)(loaded_image->ImageBase + table_offset);
+
+    // get esr
+    reloc_hdr = (efi_relocation_hdr_t*)(loaded_image->ImageBase + sectionHeaders[2].PointerToRawData);
+    relocs = (efi_relocation_t*)(((void*)reloc_hdr) + sizeof(efi_relocation_hdr_t));
+
+    // get offset
+    relocoffset = ((intptr_t)loaded_image->ImageBase + hdr.Pe32Arch->OptionalHeader.BaseOfCode) - reloc_hdr->text_base;
+
     // relocate
     if (relocoffset != 0) {
-        intptr_t reloctbl_offset = (intptr_t)loaded_image->ImageBase + 0x1000;
-        efi_relocation_hdr_t *reloc_hdr = (void*)(reloctbl_offset);
-        efi_relocation_t * relocs = (void*)(reloctbl_offset + sizeof(efi_relocation_hdr_t));
-
         status = mST->BootServices->LocateProtocol (&mEfiCpuArchProtocolGuid, NULL, (void **)&mCpu);
         if (status) {
             efi_puts("Can't find CpuArchProtocol\n");
