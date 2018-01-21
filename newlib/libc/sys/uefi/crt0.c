@@ -144,7 +144,7 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
                 break;
 
 #elif defined(__x86_64__)
-            case R_X86_64_64:
+            case R_X86_64_RELATIVE:
                 *plocu64 += relocoffset;
                 break;
 #else
