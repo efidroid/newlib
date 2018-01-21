@@ -259,5 +259,17 @@ _start (
         return EFI_ABORTED;
     }
 
+    if (relocoffset != 0) {
+        // unprotect text section
+        // if UEFI did not protect it in first place, it would cause problems otherwise
+        // if it did though, then this call should not cause any problems because UEFI
+        // will do it anyway after returned.
+        status = mCpu->SetMemoryAttributes(mCpu, reloc_hdr->text_base + relocoffset, reloc_hdr->text_size, 0);
+        if (status) {
+            efi_puts("Can't make text section writable\n");
+            return EFI_LOAD_ERROR;
+        }
+    }
+
     return _exit_return_value ? EFI_ABORTED : EFI_SUCCESS;
 }
