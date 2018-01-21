@@ -94,33 +94,6 @@ extern void   _EXFUN(__sinit,(struct _reent *));
     }						\
   while (0)
 
-static void micro_second_delay(uint64_t us) {
-  volatile uint64_t count;
-  uint64_t init_count;
-  uint64_t timeout;
-  uint64_t ticks;
-
-  // calculate number of ticks we have to wait
-  ticks = (us * mTimestampProperties.Frequency) / 1000000LLU;
-
-  // get current counter value
-  count = mTimestamp->GetTimestamp();
-  init_count = count;
-
-  // Calculate timeout = cnt + ticks (mod 2^56)
-  // to account for timer counter wrapping
-  timeout = (count + ticks) & mTimestampProperties.EndValue;
-
-  // Wait out till the counter wrapping occurs
-  // in cases where there is a wrapping.
-  while (timeout < count && init_count <= count)
-    count = mTimestamp->GetTimestamp();
-
-  // Wait till the number of ticks is reached
-  while (timeout > count)
-    count = mTimestamp->GetTimestamp();
-}
-
 int __attribute__((weak))
 _read (int file,
        char * ptr,
@@ -431,13 +404,15 @@ int clock_gettime(clockid_t clock_id, struct timespec *tp) {
 }
 
 int usleep(useconds_t usec) {
-  if (mTimestamp) {
-    micro_second_delay(usec);
-    return 0;
+  EFI_STATUS status;
+
+  status = gST->BootServices->Stall(usec);
+  if (EFI_ERROR(status)) {
+    errno = ENOSYS;
+    return -1;
   }
 
-  errno = ENOSYS;
-  return -1;
+  return 0;
 }
 
 unsigned int sleep(unsigned int seconds) {
@@ -445,19 +420,21 @@ unsigned int sleep(unsigned int seconds) {
 }
 
 int nanosleep (const struct timespec  *rqtp, struct timespec *rmtp) {
-  if (mTimestamp) {
-    // Round up to 1us Tick Number
-    uint64_t us = 0;
-    us += rqtp->tv_sec * 1000000ULL;
-    us += rqtp->tv_nsec / 1000;
-    us += ((rqtp->tv_nsec % 1000) == 0) ? 0 : 1;
+  EFI_STATUS status;
 
-    micro_second_delay(us);
-    return 0;
+  // Round up to 1us Tick Number
+  uint64_t us = 0;
+  us += rqtp->tv_sec * 1000000ULL;
+  us += rqtp->tv_nsec / 1000;
+  us += ((rqtp->tv_nsec % 1000) == 0) ? 0 : 1;
+
+  status = gST->BootServices->Stall(us);
+  if (EFI_ERROR(status)) {
+    errno = ENOSYS;
+    return -1;
   }
 
-  errno = ENOSYS;
-  return -1;
+  return 0;
 }
 
 int sched_yield( void ) {
