@@ -80,7 +80,6 @@ void __libc_efi_puts(const char *s) {
 
 static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr, intptr_t relocoffset) {
     uintptr_t i;
-    uint32_t *got = (void*)(reloc_hdr->got_address + relocoffset);
 
     for(i=0; i<reloc_hdr->num_relocs; i++) {
         efi_relocation_t *rel = &relocs[i];
@@ -158,8 +157,11 @@ static int do_relocate(efi_relocation_t *relocs, efi_relocation_hdr_t *reloc_hdr
         }
     }
 
-    for(i=0; i<reloc_hdr->got_size / sizeof(Elf_Addr); i++) {
-        got[i] += relocoffset;
+    if (reloc_hdr->got_address && reloc_hdr->got_size && reloc_hdr->elf_type==ET_EXEC) {
+        uint32_t *got = (void*)(reloc_hdr->got_address + relocoffset);
+        for(i=0; i<reloc_hdr->got_size / sizeof(Elf_Addr); i++) {
+            got[i] += relocoffset;
+        }
     }
 
     return 0;
