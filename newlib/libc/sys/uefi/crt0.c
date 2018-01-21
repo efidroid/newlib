@@ -30,6 +30,7 @@ typedef struct {
     Elf_Word num_relocs;
     Elf_Addr got_address;
     Elf_Word got_size;
+    Elf_Word elf_type;
 
     Elf_Addr text_base;
     Elf_Word text_size;
